@@ -1,0 +1,53 @@
+#ifndef PROJECT_CONF_H_
+#define PROJECT_CONF_H_
+
+/*----------------------------------------------------------------------------*/
+/* GENERAL CONFIG                                                             */
+/*----------------------------------------------------------------------------*/
+#undef LPM_CONF_ENABLE
+#define LPM_CONF_ENABLE 0
+
+/*----------------------------------------------------------------------------*/
+/* RPL (UDP SERVER) CONFIG                                                    */
+/*----------------------------------------------------------------------------*/
+#undef NBR_TABLE_CONF_MAX_NEIGHBORS
+#undef UIP_CONF_MAX_ROUTES
+
+#define NBR_TABLE_CONF_MAX_NEIGHBORS                10
+#define UIP_CONF_MAX_ROUTES                         10
+
+#undef NETSTACK_CONF_RDC
+#define NETSTACK_CONF_RDC                           nullrdc_driver
+#undef NULLRDC_CONF_802154_AUTOACK
+#define NULLRDC_CONF_802154_AUTOACK                 1
+
+#define RPL_CONF_DEFAULT_LIFETIME_UNIT              60
+#define RPL_CONF_DEFAULT_LIFETIME                   10
+
+#define RPL_CONF_DEFAULT_ROUTE_INFINITE_LIFETIME    1
+
+#undef  NETSTACK_CONF_RADIO
+#define NETSTACK_CONF_RADIO                         cc2538_rf_driver
+
+#define ANTENNA_SW_SELECT_DEF_CONF                  ANTENNA_SW_SELECT_2_4GHZ
+
+#define RESOLV_CONF_SUPPORTS_MDNS                   0
+
+/*----------------------------------------------------------------------------*/
+/* APP CONFIG FOR BORDER ROUTER TASKS                                         */
+/*----------------------------------------------------------------------------*/
+#define SENTILO_PROVIDER_URL_CLOUD "http://host:port/endpoint"
+#define SENTILO_TOKEN_CLOUD "token"
+
+#define SENTILO_PROVIDER_URL_LOCAL "http://host:port/endpoint"
+#define SENTILO_TOKEN_LOCAL "token"
+
+#define TELEGRAM_API_URL "http://host:port"
+#define TELEGRAM_BOT_TOKEN "token"
+#define TELEGRAM_PUBLIC_CHAT_ID "public_chat_id"
+#define TELEGRAM_PRIVATE_CHAT_ID "private_chat_id"
+
+#define SENTILO_URL SENTILO_PROVIDER_URL_LOCAL
+#define SENTILO_TOKEN SENTILO_TOKEN_LOCAL
+
+#endif
