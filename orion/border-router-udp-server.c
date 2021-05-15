@@ -65,20 +65,26 @@
 #endif
 
 // when less than 3180 mV were registered.
+#ifndef MOTE_LOW_BATTERY_LIMIT
 #define MOTE_LOW_BATTERY_LIMIT 3180
+#endif
 
-// when, after a cycle, less than 80 packets were received.
+// when, after a cycle, less than 80% of packets were received.
+#ifndef MOTE_LOW_PDR_LIMIT
 #define MOTE_LOW_PDR_LIMIT 80
+#endif
 
 // when more than 40 Celsius degrees were registered.
+#ifndef MOTE_HIGH_TEMP_LIMIT
 #define MOTE_HIGH_TEMP_LIMIT 40
+#endif
 
 // max 6 request for each mote, 5 for sentilo and 1 for telegram.
 #define MAX_HTTP_REQUESTS 6*NUMBER_OF_MOTES
 
 // define max data in and out.
 #define MAX_HTTP_DATA_IN 512
-#define MAX_HTTP_DATA_OUT 120
+#define MAX_HTTP_DATA_OUT 256
 
 // {"chat_id":"-XXXXXXXXXXXXX","text":""} + \0
 #define MIN_TELEGRAM_MSG_SIZE 39
@@ -728,7 +734,7 @@ static void tcpip_handler(void)
                             if (f_high_temperature)
                             {
                                 snprintf(tmp, MAX_DEVICE_STRING_DATA - MIN_TELEGRAM_MSG_SIZE -1,
-                                    "- High temp: %02d.%d°C\n",
+                                    "- High temperature: %02d.%d °C\n",
                                     temp / 10,
                                     temp % 10);
 
@@ -738,7 +744,7 @@ static void tcpip_handler(void)
                             if (f_low_battery)
                             {
                                 snprintf(tmp, MAX_DEVICE_STRING_DATA - MIN_TELEGRAM_MSG_SIZE -1,
-                                    "- Low batt: %d.%dV\n", batt / 1000, (batt/10) % 100);
+                                    "- Low battery: %d.%d V\n", batt / 1000, (batt/10) % 100);
 
                                 strncat(msg, tmp, MAX_DEVICE_STRING_DATA - MIN_TELEGRAM_MSG_SIZE - strlen(msg) -1);
                             }
@@ -788,7 +794,7 @@ static void tcpip_handler(void)
                                 r->target_type = TELEGRAM;
 
                                 snprintf(msg, MAX_DEVICE_STRING_DATA - MIN_TELEGRAM_MSG_SIZE -1,
-                                    "Mote %d:\n- Temp: %02d.%d°C\n- Hum: %02d.%d%%\n- Light: %d%%",
+                                    "Mote %d:\n- Temperature: %02d.%d °C\n- Humidity: %02d.%d%%\n- Light: %d%%",
                                     device_id,
                                     temp / 10,
                                     temp % 10,
@@ -859,6 +865,20 @@ static void print_local_addresses(void)
     }
 }
 
+static void print_app_config()
+{
+    PRINTF("=============================================================\n");
+    PRINTF("= APP config                                                =\n");
+    PRINTF("=============================================================\n");
+    PRINTF("Max number of motes to manage:  %d\n", NUMBER_OF_MOTES);
+    PRINTF("PDR Threshold:                  %d%% packets\n", MOTE_LOW_PDR_LIMIT);
+    PRINTF("Battery threshold:              %d mV\n", MOTE_LOW_BATTERY_LIMIT);
+    PRINTF("Temperature threshold:          %d °C\n", MOTE_HIGH_TEMP_LIMIT);
+    PRINTF("Using Sentilo URL:              '%s'\n", SENTILO_URL);
+    PRINTF("Using Telegram URL:             '%s'\n", TELEGRAM_API_URL);
+    PRINTF("=============================================================\n");
+}
+
 PROCESS_THREAD(border_router_and_udp_server_process, ev, data)
 {
     uip_ipaddr_t ipaddr;
@@ -911,7 +931,10 @@ PROCESS_THREAD(border_router_and_udp_server_process, ev, data)
     PRINTF(" local/remote port %u/%u\n", UIP_HTONS(server_conn->lport),
            UIP_HTONS(server_conn->rport));
 
-    PRINTF("Max number of motes to manage: %d\n", NUMBER_OF_MOTES);
+    // init ip64 module (ethernet).
+    ip64_init();
+
+    print_app_config();
 
     // init some vars.
     http_data_received[0] = 0;
@@ -932,9 +955,6 @@ PROCESS_THREAD(border_router_and_udp_server_process, ev, data)
     // init timers.
     etimer_set(&http_requests_timer, HTTP_REQUEST_TIME);
     etimer_set(&http_requests_timeout_timer, HTTP_REQUESTS_TIMEOUT_TIME);
-
-    // init ip64 module (ethernet).
-    ip64_init();
 
     while (1)
     {

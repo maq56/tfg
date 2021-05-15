@@ -27,9 +27,7 @@
  * SUCH DAMAGE.
  */
 
-
 #include "contiki.h"
-#include "lib/random.h"
 #include "sys/ctimer.h"
 #include "net/ip/uip.h"
 #include "net/ipv6/uip-ds6.h"
@@ -52,49 +50,58 @@
 #define DEBUG DEBUG_FULL
 #include "net/ip/uip-debug.h"
 
+// define client and server ports.
 #define UDP_CLIENT_PORT 8765
 #define UDP_SERVER_PORT 5678
 
+// defining a period in seconds.
 #ifndef PERIOD
 #define PERIOD 60
 #endif
 
-#define START_INTERVAL (15 * CLOCK_SECOND)
+// interval of time between each packet send.
 #define SEND_INTERVAL (PERIOD * CLOCK_SECOND)
-//#define SEND_TIME (random_rand() % (SEND_INTERVAL))
-#define SEND_TIME SEND_INTERVAL
-#define MAX_PAYLOAD_LEN 128
 
+// maximum msg
+#define MAX_MSG_LEN 128
+
+// defining the device id if not already defined.
 #ifndef DEVICE_ID
 #define DEVICE_ID 1
 #endif
 
 // maximum number of sequence id.
-#define MAX_SEQ_ID 30
+#ifndef MAX_SEQ_ID
+#define MAX_SEQ_ID 60
+#endif
 
-#define ADC_PIN 5
-#define LIGHT_SENSOR_READ_INTERVAL (0.5 * CLOCK_SECOND)
-#define SEND_DATA_INTERVAL (120 * CLOCK_SECOND)
+// define the interval of light intensity reading.
+#define LIGHT_SENSOR_READ_INTERVAL (1 * CLOCK_SECOND)
+
+// maximum attempts for reading temperature and humidity.
 #define TEMP_HUM_READ_MAX_ATTEMPTS 20
 
+// define the led that indicates it is sending a test message packet.
+#define TEST_MESSAGE_LED LEDS_BLUE
+
+// the udp connection.
 static struct uip_udp_conn *client_conn;
+// the server address.
 static uip_ipaddr_t server_ipaddr;
 
-/*---------------------------------------------------------------------------*/
-PROCESS(udp_client_process, "UDP client process");
-AUTOSTART_PROCESSES(&udp_client_process);
-/*---------------------------------------------------------------------------*/
+// var to store the current sequence id.
 static int seq_id;
-static int reply;
 
+// flag to know if user requested to send a test message.
 static char f_send_test_msg;
+// var to store the last light value.
 static int last_light;
 
+// vars to manage light readings.
 static long light_accumulated;
 static int light_read_counter;
 
-static void
-tcpip_handler(void)
+static void tcpip_handler(void)
 {
     char *str;
 
@@ -102,51 +109,56 @@ tcpip_handler(void)
     {
         str = uip_appdata;
         str[uip_datalen()] = '\0';
-        reply++;
-        printf("DATA recv '%s' (s:%d, r:%d)\n", str, seq_id, reply);
+        printf("DATA recv '%s'\n", str);
     }
 }
-/*---------------------------------------------------------------------------*/
-static void
-send_packet(void *ptr)
-{
-    char buf[MAX_PAYLOAD_LEN];
 
+static void send_packet(void *ptr)
+{
+    char buf[MAX_MSG_LEN];
+
+    // if it is required to send a test message...
     if (f_send_test_msg)
     {
         // reset flag.
         f_send_test_msg = 0;
 
-        sprintf(buf,
+        // build it.
+        snprintf(buf, MAX_MSG_LEN - 1,
             "{\"id\": %d, \"typ\": \"test\"}",
             DEVICE_ID);
     }
     else
     {
+        // else send a data message.
         int temp = 0;
         int hum = 0;
 
+        // activate temp/hum sensor.
         SENSORS_ACTIVATE(dht22);
-        //PRINTF("Client sending to: ");
-        //PRINT6ADDR(&client_conn->ripaddr);
 
+        // read from the sensor.
         int error = dht22_read_all(&temp, &hum);
         uint8_t read_counter = 1;
 
         while (error == DHT22_ERROR &&
-               read_counter < TEMP_HUM_READ_MAX_ATTEMPTS)
+            read_counter < TEMP_HUM_READ_MAX_ATTEMPTS)
         {
             error = dht22_read_all(&temp, &hum);
             read_counter++;
         }
 
+        // deactivate temp/hum sensor.
         SENSORS_DEACTIVATE(dht22);
 
         printf("Temp/Hum read attempts: %d.\n", read_counter);
 
+        // if there was no error...
         if (error != DHT22_ERROR)
         {
-            sprintf(buf,
+            // build a data message with temp/hum.
+            // -1 because of \0 char.
+            snprintf(buf, MAX_MSG_LEN - 1,
                 "{\"id\": %d, \"typ\": \"data\", \"seq\": %d, \"temp\": %d, \"hum\": %d, \"light\": %d, \"batt\": %d}",
                 DEVICE_ID,
                 seq_id,
@@ -157,9 +169,11 @@ send_packet(void *ptr)
         }
         else
         {
+            // build a data message indicating temp/hum error.
             printf("Failed to read the temp/hum sensor\n");
 
-            sprintf(buf,
+            // -1 because of \0 char.
+            snprintf(buf, MAX_MSG_LEN - 1,
                 "{\"id\": %d, \"typ\": \"data\", \"seq\": %d, \"temp\": \"%s\", \"hum\": \"%s\", \"light\": %d, \"batt\": %d}",
                 DEVICE_ID,
                 seq_id,
@@ -184,12 +198,12 @@ send_packet(void *ptr)
 
     printf(" (msg: %s)\n", buf);
 
+    // send the message.
     uip_udp_packet_sendto(client_conn, buf, strlen(buf),
         &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT));
 }
 
-static void
-print_local_addresses(void)
+static void print_local_addresses(void)
 {
     int i;
     uint8_t state;
@@ -223,17 +237,41 @@ static void set_global_address(void)
     uip_ip6addr(&server_ipaddr, UIP_DS6_DEFAULT_PREFIX, 0, 0, 0, 0, 0x00ff, 0xfe00, 1);
 }
 
+static void activate_test_message_led()
+{
+    leds_on(TEST_MESSAGE_LED);
+}
+
+static void deactivate_test_message_led()
+{
+    leds_off(TEST_MESSAGE_LED);
+}
+
+static void print_app_config()
+{
+    PRINTF("=============================================================\n");
+    PRINTF("= APP config                                                =\n");
+    PRINTF("=============================================================\n");
+    PRINTF("Device ID:                   %d\n", DEVICE_ID);
+    PRINTF("Packet sending period time:  %d seconds\n", PERIOD);
+    PRINTF("Maximum sequence ID:         %d\n", MAX_SEQ_ID);
+    PRINTF("=============================================================\n");
+}
+
+PROCESS(udp_client_process, "UDP client process");
+AUTOSTART_PROCESSES(&udp_client_process);
+
 PROCESS_THREAD(udp_client_process, ev, data)
 {
-    static struct etimer periodic;
-    static struct ctimer backoff_timer;
-    static struct etimer button_timer;
+    static struct etimer send_packet_timer;
+    static struct ctimer test_msg_led_timer;
     static struct etimer light_timer;
 
     PROCESS_BEGIN();
 
     PROCESS_PAUSE();
 
+    // init udp/rpl processes.
     set_global_address();
 
     PRINTF("UDP client process started nbr:%d routes:%d\n",
@@ -241,13 +279,13 @@ PROCESS_THREAD(udp_client_process, ev, data)
 
     print_local_addresses();
 
-    /* new connection with remote host */
     client_conn = udp_new(NULL, UIP_HTONS(UDP_SERVER_PORT), NULL);
     if (client_conn == NULL)
     {
         PRINTF("No UDP connection available, exiting the process!\n");
         PROCESS_EXIT();
     }
+
     udp_bind(client_conn, UIP_HTONS(UDP_CLIENT_PORT));
 
     PRINTF("Created a connection with the server ");
@@ -255,11 +293,7 @@ PROCESS_THREAD(udp_client_process, ev, data)
     PRINTF(" local/remote port %u/%u\n",
            UIP_HTONS(client_conn->lport), UIP_HTONS(client_conn->rport));
 
-    etimer_set(&periodic, SEND_INTERVAL);
-    etimer_set(&light_timer, LIGHT_SENSOR_READ_INTERVAL);
-
-    PRINTF("Device ID: %d\n", DEVICE_ID);
-    PRINTF("Packet sending period time: %d seconds\n", PERIOD);
+    print_app_config();
 
     // initialize some vars.
     f_send_test_msg = 0;
@@ -272,7 +306,10 @@ PROCESS_THREAD(udp_client_process, ev, data)
 
     last_light = 0;
 
-    // using PA2 (ADC3).
+    etimer_set(&send_packet_timer, SEND_INTERVAL);
+    etimer_set(&light_timer, LIGHT_SENSOR_READ_INTERVAL);
+
+    // using PA2 (ADC3) for light sensor.
     adc_sensors.configure(ANALOG_GROVE_LIGHT, 2);
 
     while (1)
@@ -284,41 +321,44 @@ PROCESS_THREAD(udp_client_process, ev, data)
         }
         else if((ev == sensors_event) && (data == &button_sensor))
         {
+            // if user button is pressed...
             if(button_sensor.value(BUTTON_SENSOR_VALUE_TYPE_LEVEL) == BUTTON_SENSOR_PRESSED_LEVEL)
             {
-                leds_on(LEDS_BLUE);
+                activate_test_message_led();
                 printf("User button pressed, performing communication test.\n");
-                etimer_set(&button_timer, CLOCK_SECOND * 1);
-                PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&button_timer));
-                leds_off(LEDS_BLUE);
+                ctimer_set(&test_msg_led_timer, CLOCK_SECOND * 1,
+                    deactivate_test_message_led, NULL);
 
+                // activate the "test message" flag and send a packet.
                 f_send_test_msg = 1;
                 send_packet(NULL);
             }
         }
 
-        if (etimer_expired(&periodic))
+        if (etimer_expired(&send_packet_timer))
         {
-            etimer_reset(&periodic);
-            ctimer_set(&backoff_timer, SEND_TIME, send_packet, NULL);
+            etimer_reset(&send_packet_timer);
+            send_packet(NULL);
         }
 
         if (etimer_expired(&light_timer))
         {
             etimer_reset(&light_timer);
 
+            // get the value of light sensor.
             int ldr = adc_sensors.value(ANALOG_GROVE_LIGHT);
 
+            // if there are no errors.
             if (ldr != ADC_WRAPPER_ERROR)
             {
+                // accumulate the light value.
                 light_read_counter++;
                 light_accumulated += ldr;
 
-                //printf("LDR (resistor) = %d\n", ldr);
-
+                // if read 100 times or more...
                 if (light_read_counter >= 100)
                 {
-                    //printf("LDR accumulated = %ld\n", light_accumulated);
+                    // calculate the mean, store it and reset tmp vars.
                     last_light = 100*(light_accumulated/light_read_counter)/65535;
                     light_read_counter = 0;
                     light_accumulated = 0;

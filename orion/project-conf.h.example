@@ -8,7 +8,7 @@
 #define LPM_CONF_ENABLE 0
 
 /*----------------------------------------------------------------------------*/
-/* RPL (UDP SERVER) CONFIG                                                    */
+/* RPL CONFIG                                                                 */
 /*----------------------------------------------------------------------------*/
 #undef NBR_TABLE_CONF_MAX_NEIGHBORS
 #undef UIP_CONF_MAX_ROUTES
@@ -36,6 +36,8 @@
 /*----------------------------------------------------------------------------*/
 /* APP CONFIG FOR BORDER ROUTER TASKS                                         */
 /*----------------------------------------------------------------------------*/
+
+// example of sentilo provider url: http://192.168.1.57:8080/data/orion
 #define SENTILO_PROVIDER_URL_CLOUD "http://host:port/endpoint"
 #define SENTILO_TOKEN_CLOUD "token"
 
@@ -47,6 +49,7 @@
 #define TELEGRAM_PUBLIC_CHAT_ID "public_chat_id"
 #define TELEGRAM_PRIVATE_CHAT_ID "private_chat_id"
 
+// the sentilo url and token desired to use.
 #define SENTILO_URL SENTILO_PROVIDER_URL_LOCAL
 #define SENTILO_TOKEN SENTILO_TOKEN_LOCAL
 
