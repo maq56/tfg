@@ -489,7 +489,7 @@ static void tcpip_handler(void)
                         temp = jsonparse_get_value_as_int(&js_p_state);
                         temp_received = 1;
 
-                        PRINTF("temp: %02d.%d\n", temp / 10, temp % 10);
+                        PRINTF("temp: %d.%d\n", temp / 10, temp % 10);
 
                         // if temperature is greater or equal than the limit
                         // register alert.
@@ -511,14 +511,14 @@ static void tcpip_handler(void)
                         f_sensor_error = 1;
                         hum_received = 0;
 
-                        PRINTF("temp: error");
+                        PRINTF("hum: error");
                     }
                     else
                     {
                         hum = jsonparse_get_value_as_int(&js_p_state);
                         hum_received = 1;
 
-                        PRINTF("hum: %02d.%d\n", hum / 10, hum % 10);
+                        PRINTF("hum: %d.%d\n", hum / 10, hum % 10);
                     }
                 }
                 else if (jsonparse_strcmp_value(&js_p_state, "batt") == 0)
@@ -651,7 +651,7 @@ static void tcpip_handler(void)
                             r->target_type = SENTILO;
                             r->target_id = device_id;
                             r->data_type = TEMP;
-                            sprintf(r->data, "%02d.%d", temp / 10, temp % 10);
+                            sprintf(r->data, "%d.%d", temp / 10, temp % 10);
 
                             list_push(http_request_list, r);
                         }
@@ -668,7 +668,7 @@ static void tcpip_handler(void)
                             r->target_type = SENTILO;
                             r->target_id = device_id;
                             r->data_type = HUM;
-                            sprintf(r->data, "%02d.%d", hum / 10, hum % 10);
+                            sprintf(r->data, "%d.%d", hum / 10, hum % 10);
 
                             list_push(http_request_list, r);
                         }
@@ -685,7 +685,7 @@ static void tcpip_handler(void)
                             r->target_type = SENTILO;
                             r->target_id = device_id;
                             r->data_type = BATT;
-                            sprintf(r->data, "%d.%d", batt / 1000, (batt/10) % 100);
+                            sprintf(r->data, "%d.%02d", batt / 1000, (batt/10) % 100);
 
                             list_push(http_request_list, r);
                         }
@@ -734,7 +734,7 @@ static void tcpip_handler(void)
                             if (f_high_temperature)
                             {
                                 snprintf(tmp, MAX_DEVICE_STRING_DATA - MIN_TELEGRAM_MSG_SIZE -1,
-                                    "- High temperature: %02d.%d °C\n",
+                                    "- High temperature: %d.%d °C\n",
                                     temp / 10,
                                     temp % 10);
 
@@ -744,7 +744,7 @@ static void tcpip_handler(void)
                             if (f_low_battery)
                             {
                                 snprintf(tmp, MAX_DEVICE_STRING_DATA - MIN_TELEGRAM_MSG_SIZE -1,
-                                    "- Low battery: %d.%d V\n", batt / 1000, (batt/10) % 100);
+                                    "- Low battery: %d.%02d V\n", batt / 1000, (batt/10) % 100);
 
                                 strncat(msg, tmp, MAX_DEVICE_STRING_DATA - MIN_TELEGRAM_MSG_SIZE - strlen(msg) -1);
                             }
